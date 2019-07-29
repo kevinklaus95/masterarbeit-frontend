@@ -40,12 +40,12 @@ class MyComponent extends React.Component {
                 randomSeed: 1,
                 numberOfDisplayedTopTopics: 3,
                 displayedTopicsTopWords: 8,
-                removeHighFrequentWords: 0.6,
+                removeHighFrequentWords: 0.8,
                 ignoreCapitalization: false,
                 removeNumbers: true,
                 stemming: false,
-                removeStopwords: false,
-                minimalWordLength: 2,
+                removeStopwords: true,
+                minimalWordLength: 3,
                 timespan: 14,
                 selectedTab: 'lda'
             },
@@ -59,7 +59,10 @@ class MyComponent extends React.Component {
             secondTopicbarData: {},
             dictionaryBarData: {},
             secondDictionaryBarData: {},
-            second: false
+            second: false,
+            customText: '',
+            resultColdWords: [],
+            resultWarmWords: []
         };
     }
 
@@ -266,6 +269,31 @@ class MyComponent extends React.Component {
                 comments: res.data['hours'],
                 ldaResult: res.data['lda_result'],
                 dictionaryResult: res.data['dictionary_result'],
+                resultWarmWords: res.data['warm_words'],
+                resultColdWords: res.data['cold_words'],
+                loading: false
+            }, () => {
+                this.buildTopicBarData(this.state.ldaResult.entries, this.state.ldaResult.topics)
+                this.buildDictionaryBarData(this.state.dictionaryResult)
+            }))
+            .catch(err => {this.setState({loading: false}); alert(err)});
+    }
+
+    startCustomAnalysis = () => {
+        this.setState({loading: true})
+        let config = {
+            headers: {
+                "X-CSRFToken": this.getCookie('csrftoken'),
+            }
+        }
+        axios.post('start-custom-analysis/', {
+            customText: this.state.customText,
+            config: this.state.ldaConfig
+        }, config)
+            .then(res => this.setState({
+                comments: res.data['hours'],
+                ldaResult: res.data['lda_result'],
+                dictionaryResult: res.data['dictionary_result'],
                 loading: false
             }, () => {
                 this.buildTopicBarData(this.state.ldaResult.entries, this.state.ldaResult.topics)
@@ -310,6 +338,23 @@ class MyComponent extends React.Component {
     render() {
         return (
             <div>
+                <div className="row">
+                    <div className="col-md-6">
+                        <TextField floatingLabelText={"Freitext"} onChange={(e, newValue) => {
+                            this.setState({customText: newValue})
+                        }} value={this.state.customText}
+                            multiLine
+                                   rows={3}
+                        />
+                    </div>
+                    <div className="col-md-3">
+                        <RaisedButton style={{marginTop: '20px', width: '100%'}} disabled={this.state.loading}
+                                      label={this.state.loading ? 'Warte auf Antwort...' : "Freitext analysieren"}
+                                      onClick={() => {
+                                          this.startCustomAnalysis()
+                                      }}/>
+                    </div>
+                </div>
                 <div className="row">
                     <div className="col-md-3">
                         <SelectField
@@ -562,6 +607,21 @@ class MyComponent extends React.Component {
                             : <div>
                             {Object.keys(this.state.dictionaryBarData).length ?
                                 <div className={"center"}>
+                                    <div>
+                                        Warm:
+                                        <br/>
+                                        {this.state.dictionaryResult && this.state.resultWarmWords.map((word) => {
+                                            return (
+                                                <span>{word}, </span>)
+                                        })}
+                                        <br/>
+                                        Kalt:
+                                        <br/>
+                                        {this.state.dictionaryResult && this.state.resultColdWords.map((word) => {
+                                            return (
+                                                <span>{word}, </span>)
+                                        })}
+                                    </div>
                                     <BarChart
                                         width={600}
                                         height={400}
